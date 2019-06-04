@@ -3,7 +3,7 @@ from __future__ import print_function
 import sys
 import json
 from util import get_iox_url
-from dnac_apphosting import start_app_on_device, stop_app_on_device, get_app_info
+from dnac_apphosting import start_app_on_device, stop_app_on_device
 
 def find_devices(app):
     return get_iox_url("appmgr/devices?searchByApp=%s" % app)

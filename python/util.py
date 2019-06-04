@@ -4,6 +4,7 @@ import os
 import sys
 import requests
 import json
+import subprocess
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 #from tests.fake import fake, fake_post
@@ -99,21 +100,51 @@ def post_and_wait_iox(url, data):
 
     return task_result
 
-def post_and_wait_file_upload(url, data):
-    if FAKE:
-        return fake_post[url]
+def post_multipart_file(url, files):
     token = get_auth_token()
     url = create_iox_url(path=url)
-    headers= { 'x-auth-token': token['token'], 'content-type' : 'form-data'}
-
+    headers= { 'x-auth-token': token['token']}
+    print("url - %s" % url)
     try:
-        response = requests.post(url, headers=headers, data=data, verify=False)
+        response = requests.post(url, files=files, headers=headers, verify=False)
     except requests.exceptions.RequestException  as cerror:
         print ("Error processing request", cerror)
         sys.exit(1)
-
-    print (json.dumps(response.json()))
-    taskid = response.json()['response']['taskId']
-    print ("Waiting for Task %s" % taskid)
-    task_result = wait_on_task(taskid, token)
-
+    
+    resp_json = json.dumps(response.json())
+    return resp_json
+    
+def call_script(script, *args, **env):
+    """
+    Calls script with environment variables defined in env (if any) 
+    and returns output,returncode.
+    """
+    
+    print("call_script: cmd:%s args:%s env:%s" % (script, args, env))
+    if type(script) is list:
+        li = script
+    else:
+        # string
+        li = [script]
+    li.extend(args)
+    
+    if env:
+        li = ' '.join(li)
+        env_str = ''
+        for key, value in env.items():
+            env_str += str(key) + '=' + str(value) + ' '    
+        li = env_str + li
+        
+    try:
+        if env:
+            print("Executing script : %s" % li)
+            rval = subprocess.check_output(li, stderr=subprocess.STDOUT, shell=True)
+        else:
+            print("Executing script : %s" % " ".join(li))
+            rval = subprocess.check_output(li, stderr=subprocess.STDOUT)
+        return rval, 0
+    except subprocess.CalledProcessError as c:
+        return c.output, c.returncode
+    except Exception as ex:
+        print("Error executing script : %s, exception - %s" % (" ".join(li), ex))
+        return str(ex), -1
